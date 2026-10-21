@@ -1,6 +1,6 @@
 # AlohaQ SNIPER
 
-A frontend for finding appointments at Honolulu’s 15 AlohaQ satellite city hall and driver licensing offices. Select a location, service, and date range in the compact header. Available times fill the main page, earliest first. The calendar is available from the header. Express/release booking has its own page at `/express`, linked from the header.
+A web app for finding appointments at Honolulu’s 15 AlohaQ satellite city hall and driver licensing offices. Select a location, service, and date range in the compact header. Available times fill the main page, earliest first. The calendar is available from the header. Express/release booking has its own page at `/express`, linked from the header.
 
 ## Start
 
