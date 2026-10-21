@@ -1,0 +1,5 @@
+node_modules/
+output/
+*.local.json
+*.local.json.tmp
+package-lock.json

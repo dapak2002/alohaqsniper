@@ -69,6 +69,16 @@ npm run cli -- --locations all --watch --before 2026-10-30
 
 The CLI inspects the initially available month. The frontend's API scanner fetches all available dates within its selected horizon and AlohaQ’s location-specific calendar limit. Both always prioritize appointment time before distance/location preference.
 
+## Development
+
+- `src/server.js`: HTTP server, hosted-origin checks, static assets, and session setup.
+- `src/routes.js` / `src/http.js`: session-scoped API routing and HTTP helpers.
+- `src/alohaq-api.js`, `scanner.js`, `bookings.js`, `release.js`: AlohaQ requests and appointment workflows.
+- `web/app.js` / `web/presentation.js`: page interactions and reusable display helpers.
+- `src/shared.js`: browser/server date and settings logic.
+
+Run `npm run format` before committing. `npm run format:check` checks formatting without modifying files. GitHub Actions checks formatting, runs the tests, and builds the Railway image. Prettier is a development dependency; the hosted app still needs no installed runtime dependencies.
+
 ## Validation
 
 ```sh
@@ -95,6 +105,5 @@ Use **Express booking** to choose a date and office without running a scan. Ente
 Under **Express & release booking**, select **At a release time today**, choose a location, target appointment date, and start time today (HST), then review and arm automatic booking. The time defaults to 4:14 PM HST and can be edited. The run starts **today in Hawaii** and targets the appointment date you selected, including weekends (there may be no openings). The server prepares the service lookup in advance and checks only that office/service/day every 500 ms until five minutes after the chosen release time, with a 500 ms buffer before the first check. Once an opening appears, it rechecks and submits the earliest time. There is no full calendar scan in this path. Empty availability is retried; submitted bookings are never automatically retried, and other errors stop the run. The actual cadence includes API response time.
 
 Keep the server running (and the computer awake if running locally). Closing the tab does not stop the job, but keep the browser session to retrieve the result. Restarting the server disarms the run. The UI shows the target, countdown, checks, result, and a Stop button. Stop can cancel waiting/searching, but cannot retract a booking already being submitted. Arming uses the details entered in that booking review. This feature is off until explicitly armed and does not guarantee an opening or a successful booking.
-
 
 All currently listed category-1 services are displayed per office, including notices for services unavailable online. Searches query only the selected service and office. Every office is available in the Location selector. Express and scheduled booking pass the selected service ID, validate its current availability and service type, and never substitute a different service. Driver licensing/state ID/permit/CDL services are listed for discovery and scanning, with an official-site link for completion rather than skipping their required checks.
