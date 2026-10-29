@@ -59,6 +59,7 @@ export class ReleaseBooking {
         this.state.message = e.message;
       }
     }
+    if (!this.active()) this.person = undefined;
     return this.state;
   }
   queue(generation, delay) {
@@ -71,6 +72,7 @@ export class ReleaseBooking {
       return;
     }
     if (this.now() >= this.state.end) {
+      this.person = undefined;
       this.state.status = 'expired';
       this.state.message = 'Release window ended without a booking.';
       return;
@@ -86,6 +88,7 @@ export class ReleaseBooking {
       );
       if (generation !== this.generation) return;
       if (this.now() >= this.state.end) {
+        this.person = undefined;
         this.state.status = 'expired';
         this.state.message = 'Release window ended without a booking.';
         return;
@@ -101,6 +104,7 @@ export class ReleaseBooking {
           this.person,
           randomUUID(),
         );
+        this.person = undefined;
         this.state.status = result.status;
         this.state.message =
           result.status === 'booked'
@@ -114,6 +118,7 @@ export class ReleaseBooking {
       if (generation !== this.generation) return;
       // Only an explicitly stale slot is safe to retry. Other errors stop the run.
       if (e.message !== 'This time is no longer available. Scan again.') {
+        this.person = undefined;
         this.state.status = 'failed';
         this.state.message = e.message;
         return;
@@ -126,6 +131,7 @@ export class ReleaseBooking {
   stop() {
     if (this.state.status === 'submitting')
       throw Error('A booking request is already in progress. Wait for its result.');
+    this.person = undefined;
     this.unschedule(this.timer);
     this.generation++;
     if (this.active()) {

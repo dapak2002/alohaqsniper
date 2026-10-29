@@ -2,15 +2,33 @@ import { locations, validateDetails } from './core.js';
 import { validateSettings } from './shared.js';
 import { readBody, json } from './http.js';
 
+export const apiRoutes = new Map([
+  ['/api/state', 'GET'],
+  ['/api/services', 'GET'],
+  ['/api/settings', 'POST'],
+  ['/api/scan', 'POST'],
+  ['/api/stop', 'POST'],
+  ['/api/book', 'POST'],
+  ['/api/book-express', 'POST'],
+  ['/api/release-arm', 'POST'],
+  ['/api/release-stop', 'POST'],
+]);
+
 const ids = locations.map((location) => location.id);
 
 // Route handlers operate only on the browser's session, never on shared booking state.
-export async function handleApi(req, res, path, session, services) {
+export async function handleApi(req, res, path, session, services, work) {
   const { scanner, bookings, release } = session;
   const { settings } = session;
   if (req.method === 'GET' && path === '/api/services') return json(res, 200, await services());
   if (req.method === 'GET' && path === '/api/state')
-    return json(res, 200, { locations, settings, scan: scanner.state, release: release.state });
+    return json(res, 200, {
+      sessionId: session.sessionId,
+      locations,
+      settings,
+      scan: scanner.state,
+      release: release.state,
+    });
   if (req.method === 'POST' && path === '/api/settings') {
     const next = validateSettings(await readBody(req), ids);
     session.settings = next;
@@ -36,7 +54,14 @@ export async function handleApi(req, res, path, session, services) {
       );
       scanSettings.serviceKey = String(selection.serviceKey);
     }
-    scanner.start(scanSettings);
+    const done = work.acquire('scan');
+    try {
+      scanner.start(scanSettings);
+      scanner.task.then(done, done);
+    } catch (error) {
+      done();
+      throw error;
+    }
     return json(res, 202, { started: true });
   }
   if (req.method === 'POST' && path === '/api/stop') {
@@ -46,32 +71,37 @@ export async function handleApi(req, res, path, session, services) {
   if (req.method === 'POST' && ['/api/book', '/api/book-express'].includes(path)) {
     const { id, requestId, reviewedDetails, locationId, day, serviceKey } = await readBody(req);
     const reviewed = validateDetails(reviewedDetails || {});
-    if (path === '/api/book-express')
-      return json(
-        res,
-        200,
-        await bookings.bookExpress({ locationId, day, serviceKey }, reviewed, requestId),
-      );
-    return json(
-      res,
-      200,
-      await bookings.book(
-        scanner.state.slots.find((s) => s.id === id),
-        reviewed,
-        requestId,
-      ),
-    );
+    const result =
+      path === '/api/book-express'
+        ? await bookings.bookExpress({ locationId, day, serviceKey }, reviewed, requestId)
+        : await bookings.book(
+            scanner.state.slots.find((slot) => slot.id === id),
+            reviewed,
+            requestId,
+          );
+    return json(res, 200, result);
   }
   if (req.method === 'POST' && path === '/api/release-arm') {
     const { releaseDay, releaseTime, targetDay, locationId, serviceKey, reviewedDetails } =
       await readBody(req);
     const reviewed = validateDetails(reviewedDetails || {});
-    return json(
-      res,
-      200,
-      await release.arm({ releaseDay, releaseTime, targetDay, locationId, serviceKey }, reviewed),
-    );
+    if (release.active()) throw new Error('A release booking is already armed. Stop it first.');
+    session.cleanup();
+    session.releaseSlot = work.acquire('release');
+    try {
+      return json(
+        res,
+        200,
+        await release.arm({ releaseDay, releaseTime, targetDay, locationId, serviceKey }, reviewed),
+      );
+    } finally {
+      session.cleanup();
+    }
   }
-  if (req.method === 'POST' && path === '/api/release-stop') return json(res, 200, release.stop());
+  if (req.method === 'POST' && path === '/api/release-stop') {
+    const result = release.stop();
+    session.cleanup();
+    return json(res, 200, result);
+  }
   return json(res, 404, { error: 'Not found.' });
 }

@@ -4,7 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { readFile, writeFile } from 'node:fs/promises';
 import { origin, rankedLocations, slotEpoch, compareSlots, validateDetails } from './core.js';
 
-const URL =
+const ALOHAQ_URL =
   'https://alohaq.honolulu.gov/?0&cat=1&name=Driver%20Licensing%20and%20Satellite%20Services';
 const { values: opts } = parseArgs({
   options: {
@@ -94,7 +94,7 @@ process.on('SIGINT', async () => {
 });
 
 async function calendar(site) {
-  await page.goto(URL);
+  await page.goto(ALOHAQ_URL);
   await page.locator('#newAppointment').click();
   await page
     .getByRole('button', { name: new RegExp(site.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) })

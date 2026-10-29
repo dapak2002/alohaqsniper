@@ -431,7 +431,19 @@ function renderScan() {
   renderResults();
 }
 async function refresh() {
-  state = await api('state');
+  const next = await api('state');
+  if (state.sessionId && state.sessionId !== next.sessionId) {
+    $('book-dialog').close();
+    $('release-dialog')?.close();
+    reviewedDetails = releaseDetails = null;
+    searchSelection = null;
+    settings = next.settings;
+    lastSignature = '';
+    window.alert(
+      'Your session expired or the server restarted. Armed jobs were cleared. Check any unconfirmed appointment on AlohaQ before booking again.',
+    );
+  }
+  state = next;
   renderRelease();
   if (isExpress) return;
   const signature = JSON.stringify([
@@ -464,15 +476,21 @@ try {
   if ($('location-guide').open) $('location-info').onclick();
   if (!isExpress) renderScan();
   async function poll() {
+    let delay = 5000;
     try {
       await refresh();
+      if (
+        state.scan.status === 'running' ||
+        ['preparing', 'waiting', 'searching', 'submitting'].includes(state.release.status)
+      )
+        delay = 1000;
     } catch {
       $(isExpress ? 'connection-status' : 'scan-status').textContent =
         'Connection lost. Reconnecting…';
     }
-    setTimeout(poll, 500);
+    setTimeout(poll, delay);
   }
-  setTimeout(poll, 500);
+  setTimeout(poll, 1000);
 } catch (e) {
   toast(e.message);
   if ($('scan')) $('scan').disabled = true;

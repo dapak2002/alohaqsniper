@@ -235,3 +235,15 @@ test('release respects selected service instead of defaulting to motor vehicles'
   await t.r.tick();
   assert.deepEqual(t.calls[0], ['ALAM', '235', '2099-01-06']);
 });
+
+test('release clears contact details after stopping and expiration', async () => {
+  const t = setup();
+  await t.arm();
+  assert.ok(t.r.person);
+  t.r.stop();
+  assert.equal(t.r.person, undefined);
+  await t.arm();
+  t.setNow(t.r.state.end);
+  await t.r.tick();
+  assert.equal(t.r.person, undefined);
+});

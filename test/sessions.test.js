@@ -32,3 +32,21 @@ test('idle sessions expire, active jobs remain and capacity is bounded', () => {
   assert.notEqual(sessions.get(b.cookie).value, b.value);
   assert.equal(sessions.entries.size, 2);
 });
+
+test('absolute lifetime expires despite activity and calls disposal', () => {
+  let now = 0,
+    disposed = 0;
+  const sessions = new Sessions(() => ({ busy: () => false, dispose: () => disposed++ }), {
+    now: () => now,
+    ttl: 100,
+    maxAge: 20,
+  });
+  const first = sessions.get('');
+  now = 10;
+  assert.equal(sessions.get(first.cookie).value, first.value);
+  now = 21;
+  sessions.cleanup();
+  assert.equal(disposed, 1);
+  assert.equal(sessions.entries.size, 0);
+  assert.throws(() => sessions.get(first.cookie, false, { create: false }), { status: 401 });
+});

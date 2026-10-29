@@ -4,11 +4,11 @@ import { validateDetails, locations } from './core.js';
 import { scanRange, hstDay } from './shared.js';
 
 // Mutations deliberately have no automatic retry: a timed-out POST may have succeeded.
-export async function appointmentRequest(path, params, method = 'POST') {
+export async function appointmentRequest(path, params, method = 'POST', fetchImpl = fetch) {
   const url = new URL(path, 'https://alohaq.honolulu.gov/'),
     body = new URLSearchParams(params);
   if (method === 'GET') url.search = body.toString();
-  const response = await fetch(url, {
+  const response = await fetchImpl(url, {
     method,
     signal: AbortSignal.timeout(25000),
     headers: {
@@ -26,8 +26,14 @@ export class Bookings {
     save = async () => {},
     request = appointmentRequest,
     availability = new AlohaQApi(),
+    retainDetails = true,
+    acquire = () => () => {},
+    maxRecords = 100,
   } = {}) {
+    this.acquire = acquire;
     this.records = records;
+    this.retainDetails = retainDetails;
+    this.maxRecords = maxRecords;
     this.save = save;
     this.request = request;
     this.availability = availability;
@@ -52,12 +58,15 @@ export class Bookings {
       throw new Error('Invalid booking request. Reopen the review dialog.');
     const prior = this.records.find((r) => r.requestId === requestId);
     if (prior) return prior;
+    if (this.records.length >= this.maxRecords)
+      throw new Error('Session booking limit reached. Verify existing tickets on AlohaQ.');
     if (this.busy) throw new Error('Another booking or cancellation is in progress.');
     if (!slot || (!express && slot.epoch <= Date.now()))
       throw new Error('This opening has expired. Scan again.');
     const person = validateDetails(details),
       code = locationCodes[slot.locationId];
     if (!code) throw new Error('Unknown location.');
+    const done = this.acquire();
     this.busy = true;
     try {
       if (express) {
@@ -142,9 +151,11 @@ export class Bookings {
           'The booking response could not be confirmed. Check your ticket on AlohaQ before trying again; this request will not be retried.';
       }
       record.updatedAt = Date.now();
+      if (!this.retainDetails) delete record.details;
       await this.save(this.records);
       return record;
     } finally {
+      done();
       this.busy = false;
     }
   }

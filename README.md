@@ -50,11 +50,27 @@ See [Railway variables](https://docs.railway.com/variables/reference), [deployme
 
 ## In-memory sessions
 
-Each browser session has its own search, preferences, booking deduplication records, and express job. A random HttpOnly, SameSite cookie identifies the session (Secure on the hosted domain). Tabs in the same browser share that session; different browsers/users have independent state. There are no user accounts or cross-device history. Idle sessions expire after 24 hours; active jobs are retained. Capacity is capped at 500 concurrent sessions.
+Each browser session has its own search, preferences, booking deduplication records, and express job. A random HttpOnly, SameSite cookie identifies the session (Secure on the hosted domain). Tabs in the same browser share that session; different browsers/users have independent state. There are no user accounts or cross-device history. Idle sessions expire after 24 hours, with a 26-hour absolute lifetime even while polling. A one-second cleanup timer runs independently of requests. Active jobs finish before their sessions are removed. Capacity is capped at 500 concurrent sessions.
 
-The web app never reads or writes `*.local.json`. Existing local files are left untouched, and the older CLI may still use them. Contact details are sent to AlohaQ when booking and held only in server memory for that session. Restarting/redeploying clears all sessions, search results, booking receipts, and armed jobs. This does not cancel appointments already created on AlohaQ. Keep the confirmation code and verify uncertain outcomes on the official site before trying again. Request deduplication applies only for the lifetime of the session/server process.
+The web app never reads or writes `*.local.json`. Existing local files are left untouched, and the older CLI may still use them. Contact details are sent to AlohaQ when booking. Web booking records discard names and phone numbers after a response or timeout; release jobs discard them when stopped, expired, failed, or completed. An armed job holds them until then. Each session retains at most 100 booking receipts for deduplication, without contact details. Restarting/redeploying clears all sessions, search results, booking receipts, and armed jobs. This does not cancel appointments already created on AlohaQ. Keep the confirmation code and verify uncertain outcomes on the official site before trying again. Request deduplication applies only for the lifetime of the session/server process.
 
 Multiple visitors can use the service concurrently, but upstream AlohaQ limits and competing availability still apply. The service is not a durable job queue: an interrupted timed booking is not resumed automatically.
+
+## Access and resource limits
+
+For private use, set `APP_PASSWORD` in Railway to a strong secret of at least 16 characters. The browser prompts for HTTP Basic authentication (any username; the configured password). Use HTTPS. This protects pages and API routes; `/health` remains public. Without this variable the service is still public. This is an access gate, not phone-ownership verification or a user-account system. Never commit the password.
+
+The server enforces these shared limits:
+
+- 8 concurrent searches, 20 armed/running release jobs, and 4 booking workflows.
+- All AlohaQ traffic shares a maximum of 4 in-flight requests, one request start per 100 ms, and 64 queued requests. Responses are capped at 2 MiB; redirects are rejected. Exact 500 ms polling is not guaranteed under load.
+- Per client address: 10 new sessions/minute, 30 non-stop writes/minute, 10 booking/arm attempts/minute, 1,200 API requests/minute, and 10 rejected password attempts/minute. Session creation also has a global 100/minute cap.
+- Per session: 20 non-stop writes/minute. Stop buttons remain available when write limits are reached (the general API request limit still applies).
+- Invalid routes and methods never create sessions. Only `/api/state` can create one; writes with expired/unknown cookies fail rather than silently starting a new booking session.
+
+`TRUST_PROXY_HOPS` defaults to `0`: client addresses come from the socket, and forwarded headers are ignored. Behind a proxy this conservatively groups visitors under the proxy's limits. Configure the exact trusted proxy-hop count only after verifying that your hosting ingress appends/sanitizes `X-Forwarded-For` and cannot be bypassed. Do not trust arbitrary visitor-provided headers. Limits are process-local, so keep one instance.
+
+Concurrent service-list requests share a cached promise. Idle browser status checks run every five seconds; active jobs use one second. The express availability loop still targets 500 ms subject to the shared upstream limit. On session replacement, the UI closes stale reviews and warns users to verify unconfirmed bookings. Nothing automatically rebooks after a restart. Durability across restarts would require storage, which this deployment intentionally does not use.
 
 ## Command-line tool
 

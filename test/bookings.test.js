@@ -311,3 +311,29 @@ test('express uses the selected passport service and rejects eligibility service
   assert.equal(result.slot.service, 'U.S. PASSPORT');
   assert.equal(submits, 1);
 });
+
+test('web booking discards contact details but retains retry deduplication', async () => {
+  let calls = 0;
+  const b = create(async () => {
+    calls++;
+    return { success: 1, confirmation: 'TEST' };
+  });
+  b.retainDetails = false;
+  const result = await b.book(slot, details, requestId);
+  assert.equal(result.details, undefined);
+  assert.equal(b.records[0].details, undefined);
+  await b.book(slot, details, requestId);
+  assert.equal(calls, 1);
+});
+test('web booking clears details on unknown outcomes and bounds records', async () => {
+  const b = create(async () => {
+    throw Error('timeout');
+  });
+  b.retainDetails = false;
+  b.maxRecords = 1;
+  const result = await b.book(slot, details, requestId);
+  assert.equal(result.status, 'unknown');
+  assert.equal(result.details, undefined);
+  await assert.rejects(b.book(slot, details, 'another-request-0001'), /limit reached/);
+  assert.equal((await b.book(slot, details, requestId)).status, 'unknown');
+});
