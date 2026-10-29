@@ -849,64 +849,164 @@ main {
   border-radius: 4px;
 }
 
-/* Make the automatic-booking entry point distinct from secondary navigation. */
+/* Signature target motif and automatic-booking surfaces. */
+.target-mark {
+  display: inline-block;
+  position: relative;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+}
+.target-mark::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.target-mark::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
 .snipe-link {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 11px 16px;
-  border-radius: 8px;
-  background: #156a63;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid #258477;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #12584f, #103e39);
+  box-shadow:
+    inset 0 1px 0 #ffffff20,
+    0 4px 12px #103e391c;
   color: #fff;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 650;
   text-decoration: none;
   white-space: nowrap;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+.snipe-link .target-mark {
+  color: #a9f0cf;
+}
+.snipe-arrow {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  margin-left: 5px;
+  border-radius: 7px;
+  background: #ffffff12;
+  color: #bcebd8;
+  font-size: 17px;
 }
 .snipe-link:hover {
-  background: #10544e;
+  transform: translateY(-1px);
+  box-shadow: 0 7px 18px #103e392b;
 }
 .snipe-link:focus-visible {
-  outline: 3px solid #156a63;
+  outline: 3px solid #258477;
   outline-offset: 3px;
 }
 .snipe-heading {
-  padding: 24px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 32px;
   margin-bottom: 22px;
-  border: 1px solid #b7d9d1;
-  border-left: 4px solid #156a63;
-  border-radius: 12px;
-  background: #eaf5f1;
+  border: 1px solid #285e53;
+  border-radius: 20px;
+  background: radial-gradient(ellipse at top right, #287d6480, transparent 70%), #102f2a;
+  box-shadow: 0 12px 32px #173f3214;
+}
+.snipe-heading::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 250px;
+  height: 250px;
+  right: -105px;
+  top: -95px;
+  border: 1px solid #b0f5cb26;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 30px #b0f5cb0a,
+    0 0 0 60px #b0f5cb08,
+    0 0 0 90px #b0f5cb05;
 }
 .snipe-eyebrow {
-  color: #21655b;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #a9e7c9;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 1.3px;
   text-transform: uppercase;
 }
 .snipe-heading h2 {
-  margin: 6px 0 8px;
-  font-size: 30px;
-  color: #124d46;
+  margin: 15px 0 12px;
+  font-size: clamp(30px, 4vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -1.4px;
+  color: #f4fff8;
 }
 .snipe-heading p {
-  margin: 0 0 12px;
-  color: #315e54;
+  margin: 0 0 22px;
+  max-width: 440px;
+  color: #c5dcd2;
   font-size: 15px;
+  line-height: 1.65;
 }
 .snipe-caption {
-  font-size: 12px;
-  color: #496c61;
+  display: block;
+  padding-top: 16px;
+  border-top: 1px solid #c5dcd224;
+  font-size: 11px;
+  color: #afd2c2;
+}
+.express-page > .card {
+  border-radius: 16px;
+  border-color: #dce6e1;
+  box-shadow: 0 4px 20px #173f3205;
+}
+.express-page #express-book,
+.express-page #release-review {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 10px;
+  background: #145d50;
+  box-shadow: inset 0 1px 0 #ffffff15;
+}
+.express-page #release-banner {
+  border: 1px solid #b5d9c9;
+  border-radius: 14px;
+  padding: 20px;
 }
 @media (max-width: 650px) {
   .snipe-link {
     margin: 4px 6px 4px 0;
   }
   .snipe-heading {
-    padding: 20px;
+    padding: 24px;
   }
-  .snipe-heading h2 {
-    font-size: 27px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .snipe-link {
+    transition: none;
+  }
+  .snipe-link:hover {
+    transform: none;
   }
 }
