@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>AlohaQ SNIPER · Express booking</title>
+    <title>AlohaQ SNIPER · Snipe appointment</title>
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png" />
     <link rel="stylesheet" href="/style.css" />
   </head>
@@ -34,12 +34,15 @@
       </div>
     </header>
     <main class="express-page">
-      <h2>Express booking</h2>
-      <p class="intro">
-        Keep checking your chosen date and automatically book the earliest opening. Start now or
-        schedule a search today.
-      </p>
-      <section class="card" aria-label="Express booking controls">
+      <section class="snipe-heading" aria-labelledby="snipe-title">
+        <span class="snipe-eyebrow">Automatic appointment booking</span>
+        <h2 id="snipe-title">Snipe appointment</h2>
+        <p>We keep checking your chosen date and book the earliest opening automatically.</p>
+        <span class="snipe-caption"
+          >Start now or schedule for today · Searches for up to 5 minutes</span
+        >
+      </section>
+      <section class="card" aria-label="Snipe appointment controls">
         <div class="location-field">
           <div class="field-heading">
             <label for="express-location">Location</label

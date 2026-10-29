@@ -18,7 +18,7 @@ export class ReleaseBooking {
     details,
   ) {
     if (this.active())
-      throw Error('An express search is already running or scheduled. Stop it first.');
+      throw Error('An appointment search is already running or scheduled. Stop it first.');
     if (!['now', 'scheduled'].includes(mode)) throw Error('Choose a valid start option.');
     if (mode === 'scheduled' && releaseDay !== hstDay(this.now()))
       throw Error('Release must start today in Hawaii. Reopen the review dialog.');

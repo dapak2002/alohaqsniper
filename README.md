@@ -1,6 +1,6 @@
 # AlohaQ SNIPER
 
-A web app for finding appointments at Honolulu’s 15 AlohaQ satellite city hall and driver licensing offices. Select a location, service, and date range in the compact header. Available times fill the main page, earliest first. The calendar is available from the header. Express/release booking has its own page at `/express`, linked from the header.
+A web app for finding appointments at Honolulu’s 15 AlohaQ satellite city hall and driver licensing offices. Select a location, service, and date range in the compact header. Available times fill the main page, earliest first. The calendar is available from the header. Snipe appointment has its own page at `/express`, linked from the header.
 
 ## Start
 
@@ -23,7 +23,7 @@ npm start
 2. Set **From** and **To** dates (both included, Hawaii time). **Same day** makes them equal.
 3. Click **Find appointments**. Only the chosen office and service are queried. Review available times below; **Calendar overview** summarizes available dates.
 4. Enter first name, last name, and phone directly in the booking review. Every new review starts blank.
-5. Open **Express booking** from the header for instant earliest-time booking or a timed run today. Choose its location, service, and target appointment date separately.
+5. Open **Snipe appointment** from the header for instant earliest-time booking or a timed run today. Choose its location, service, and target appointment date separately.
 6. Review before confirming a booking. Services requiring additional eligibility steps link to AlohaQ. Manage and cancel appointments on the official site.
 
 Changing the location, service, or dates clears the displayed results until you search again. Stop keeps results already collected. Timed runs remain visible in a status banner even when the advanced section is collapsed.
@@ -50,7 +50,7 @@ See [Railway variables](https://docs.railway.com/variables/reference), [deployme
 
 ## In-memory sessions
 
-Each browser session has its own search, preferences, booking deduplication records, and express job. A random HttpOnly, SameSite cookie identifies the session (Secure on the hosted domain). Tabs in the same browser share that session; different browsers/users have independent state. There are no user accounts or cross-device history. Idle sessions expire after 24 hours, with a 26-hour absolute lifetime even while polling. A one-second cleanup timer runs independently of requests. Active jobs finish before their sessions are removed. Capacity is capped at 500 concurrent sessions.
+Each browser session has its own search, preferences, booking deduplication records, and appointment-search job. A random HttpOnly, SameSite cookie identifies the session (Secure on the hosted domain). Tabs in the same browser share that session; different browsers/users have independent state. There are no user accounts or cross-device history. Idle sessions expire after 24 hours, with a 26-hour absolute lifetime even while polling. A one-second cleanup timer runs independently of requests. Active jobs finish before their sessions are removed. Capacity is capped at 500 concurrent sessions.
 
 The web app never reads or writes `*.local.json`. Existing local files are left untouched, and the older CLI may still use them. Contact details are sent to AlohaQ when booking. Web booking records discard names and phone numbers after a response or timeout; release jobs discard them when stopped, expired, failed, or completed. An armed job holds them until then. Each session retains at most 100 booking receipts for deduplication, without contact details. Restarting/redeploying clears all sessions, search results, booking receipts, and armed jobs. This does not cancel appointments already created on AlohaQ. Keep the confirmation code and verify uncertain outcomes on the official site before trying again. Request deduplication applies only for the lifetime of the session/server process.
 
@@ -70,7 +70,7 @@ The server enforces these shared limits:
 
 `TRUST_PROXY_HOPS` defaults to `0`: client addresses come from the socket, and forwarded headers are ignored. Behind a proxy this conservatively groups visitors under the proxy's limits. Configure the exact trusted proxy-hop count only after verifying that your hosting ingress appends/sanitizes `X-Forwarded-For` and cannot be bypassed. Do not trust arbitrary visitor-provided headers. Limits are process-local, so keep one instance.
 
-Concurrent service-list requests share a cached promise. Idle browser status checks run every five seconds; active jobs use one second. The express availability loop still targets 500 ms subject to the shared upstream limit. On session replacement, the UI closes stale reviews and warns users to verify unconfirmed bookings. Nothing automatically rebooks after a restart. Durability across restarts would require storage, which this deployment intentionally does not use.
+Concurrent service-list requests share a cached promise. Idle browser status checks run every five seconds; active jobs use one second. The appointment-search loop still targets 500 ms subject to the shared upstream limit. On session replacement, the UI closes stale reviews and warns users to verify unconfirmed bookings. Nothing automatically rebooks after a restart. Durability across restarts would require storage, which this deployment intentionally does not use.
 
 ## Command-line tool
 
@@ -112,16 +112,16 @@ Tests cover chronological ordering, location tie-breaking, distance calculations
 
 These public requests require no cookies, credentials or contact details in the tested flow. The client validates responses, filters holidays and dates outside the selected range, and preserves AlohaQ’s weekend/holiday extension of location-specific calendar limits. Unexpected responses are reported as incomplete scans. Booking uses `POST /wrk_book_appointment.php`. Appointment cancellation and management are available on the official AlohaQ site. These requests are made only for explicit user actions, with no automatic mutation retries. SMS calls are not replicated.
 
-### Express booking
+### Snipe appointment
 
-Use **Express booking** to choose an office, service, and appointment date. Choose **Book now**, enter your contact details, and click **Start Queue** to review and confirm. The page shows **In Queue** while the server checks the selected date every 500 ms (subject to shared limits) for up to five minutes. Empty availability keeps retrying; the earliest opening on that exact date is rechecked and booked automatically. **Leave Queue** stops before submission. When a run ends, Start Queue becomes available again. This is the tool's search queue, not a reservation or an official AlohaQ waitlist.
+Use **Snipe appointment** to choose an office, service, and appointment date. Choose **Book now**, enter your contact details, and click **Start Queue** to review and confirm. The page shows **In Queue** while the server checks the selected date every 500 ms (subject to shared limits) for up to five minutes. Empty availability keeps retrying; the earliest opening on that exact date is rechecked and booked automatically. **Leave Queue** stops before submission. When a run ends, Start Queue becomes available again. This is the tool's search queue, not a reservation or an official AlohaQ waitlist.
 
 A failed or uncertain booking submission ends the queue; it is never automatically resubmitted. Verify uncertain outcomes on AlohaQ before starting again. A slot taken before submission can be retried safely. Other API errors stop the search.
 
-### Express release-time option
+### Scheduled appointment search
 
-Under **Express & release booking**, select **At a release time today**, choose a location, target appointment date, and start time today (HST), then click **Start Queue** to review and confirm automatic booking. The time defaults to 4:14 PM HST and can be edited. The run starts **today in Hawaii** and targets the appointment date you selected, including weekends (there may be no openings). The server prepares the service lookup in advance and checks only that office/service/day every 500 ms until five minutes after the chosen release time, with a 500 ms buffer before the first check. Once an opening appears, it rechecks and submits the earliest time. There is no full calendar scan in this path. Empty availability is retried; submitted bookings are never automatically retried, and other errors stop the run. The actual cadence includes API response time.
+Under **Snipe appointment**, select **At a release time today**, choose a location, target appointment date, and start time today (HST), then click **Start Queue** to review and confirm automatic booking. The time defaults to 4:14 PM HST and can be edited. The run starts **today in Hawaii** and targets the appointment date you selected, including weekends (there may be no openings). The server prepares the service lookup in advance and checks only that office/service/day every 500 ms until five minutes after the chosen release time, with a 500 ms buffer before the first check. Once an opening appears, it rechecks and submits the earliest time. There is no full calendar scan in this path. Empty availability is retried; submitted bookings are never automatically retried, and other errors stop the run. The actual cadence includes API response time.
 
 Keep the server running (and the computer awake if running locally). Closing the tab does not stop the job, but keep the browser session to retrieve the result. Restarting the server disarms the run. The UI shows the target, countdown, checks, result, and a Stop button. Stop can cancel waiting/searching, but cannot retract a booking already being submitted. The queue uses the details entered in that booking review. This feature is off until explicitly started and does not guarantee an opening or a successful booking.
 
-All currently listed category-1 services are displayed per office, including notices for services unavailable online. Searches query only the selected service and office. Every office is available in the Location selector. Express and scheduled booking pass the selected service ID, validate its current availability and service type, and never substitute a different service. Driver licensing/state ID/permit/CDL services are listed for discovery and scanning, with an official-site link for completion rather than skipping their required checks.
+All currently listed category-1 services are displayed per office, including notices for services unavailable online. Searches query only the selected service and office. Every office is available in the Location selector. Immediate and scheduled booking pass the selected service ID, validate its current availability and service type, and never substitute a different service. Driver licensing/state ID/permit/CDL services are listed for discovery and scanning, with an official-site link for completion rather than skipping their required checks.

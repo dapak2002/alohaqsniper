@@ -87,7 +87,7 @@ export async function handleApi(req, res, path, session, services, work) {
       await readBody(req);
     const reviewed = validateDetails(reviewedDetails || {});
     if (release.active())
-      throw new Error('An express search is already running or scheduled. Stop it first.');
+      throw new Error('An appointment search is already running or scheduled. Stop it first.');
     session.cleanup();
     session.releaseSlot = work.acquire('release');
     try {
