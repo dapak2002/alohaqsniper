@@ -48,6 +48,9 @@ export class Scanner {
       services: [],
       errors: [],
       datesScanned: 0,
+      datesChecked: 0,
+      datesTotal: 0,
+      currentDay: null,
       locationsDone: 0,
       requests: 0,
       transport: 'api',
@@ -96,22 +99,29 @@ export class Scanner {
           this.state.services.push(entry);
           this.emit();
           if (service.disabled) continue;
-          try {
-            this.state.message = `Reading available dates · ${location.name} · ${service.name}`;
+          const days = [];
+          for (
+            let timestamp = Date.parse(this.state.range.start);
+            timestamp <= Date.parse(end);
+            timestamp += 86400000
+          ) {
+            days.push(new Date(timestamp).toISOString().slice(0, 10));
+          }
+          this.state.datesTotal += days.length;
+          let hadErrors = false;
+          for (const day of days) {
+            if (this.cancelled) break;
+            const date = displayDate(day);
+            this.state.currentDay = day;
+            this.state.message = `Checking ${date} · ${location.name} · ${service.name}`;
             this.emit();
-            const available =
-              end < this.state.range.start
-                ? []
-                : await api.dates(code, service.key, this.state.range.start, end);
-            for (const day of available) {
-              if (this.cancelled) break;
-              if (day < this.state.range.start || day > end || holidays.has(day)) continue;
-              const date = displayDate(day);
-              this.state.message = `${location.name} · ${date} · ${service.name}`;
-              this.emit();
+            try {
+              // Query each day directly: AlohaQ's date index can omit days with times.
               const times = await api.times(code, service.key, day);
+              if (this.cancelled) break;
               for (const { epoch, time } of times) {
-                if (epoch <= Date.now() || epoch > this.state.range.cutoff) continue;
+                if (epoch <= Date.now() || epoch > this.state.range.cutoff || hstDay(epoch) !== day)
+                  continue;
                 this.state.slots.push({
                   id: randomUUID(),
                   locationId: id,
@@ -128,14 +138,17 @@ export class Scanner {
                 entry.count++;
               }
               this.state.datesScanned++;
-              this.state.requests = api.requests;
-              this.emit();
+            } catch (error) {
+              if (this.cancelled) break;
+              hadErrors = true;
+              this.error(location, service, new Error(`${date}: ${error.message}`));
+              if (error.status === 429) break;
             }
-            entry.status = this.cancelled ? 'partial' : 'complete';
-          } catch (e) {
-            entry.status = 'partial';
-            if (!this.cancelled) this.error(location, service, e);
+            this.state.datesChecked++;
+            this.state.requests = api.requests;
+            this.emit();
           }
+          entry.status = this.cancelled || hadErrors ? 'partial' : 'complete';
           this.state.requests = api.requests;
           this.emit();
         }

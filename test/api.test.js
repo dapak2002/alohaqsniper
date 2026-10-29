@@ -138,8 +138,8 @@ test('scanner collects every API time and preserves partial results on failure',
     order: ['ala-moana'],
     enabled: ['ala-moana'],
     scope: 'motor',
-    startDate: hstDay(Date.now()),
-    endDate: hstDay(Date.now() + 29 * 86400000),
+    startDate: day,
+    endDate: next,
   });
   await scanner.task;
   assert.equal(scanner.state.status, 'partial');
@@ -209,8 +209,8 @@ test('scanner sends chosen start/end dates and excludes out-of-range days', asyn
   });
   await scanner.task;
   assert.equal(scanner.state.status, 'complete');
-  assert.deepEqual(checked, [start, end]);
-  assert.equal(scanner.state.slots.length, 2);
+  assert.deepEqual(checked, [start, hstDay(Date.now() + 6 * 86400000), end]);
+  assert.equal(scanner.state.slots.length, 3);
 });
 
 test('single-service search queries only the selected service', async () => {
@@ -230,11 +230,13 @@ test('single-service search queries only the selected service', async () => {
       requests: 0,
       catalog: async () => fixture,
       holidays: async () => new Set(),
-      dates: async (code, key) => {
-        calls.push(key);
-        return [day];
+      dates: async () => {
+        throw Error('Date index must not be queried');
       },
-      times: async () => [timeSlot(day, '09:00:00')],
+      times: async (code, key) => {
+        calls.push(key);
+        return [timeSlot(day, '09:00:00')];
+      },
     }),
   );
   scanner.start({
@@ -248,4 +250,59 @@ test('single-service search queries only the selected service', async () => {
   await scanner.task;
   assert.deepEqual(calls, ['235']);
   assert.equal(scanner.state.slots[0].serviceKey, '235');
+});
+
+test('direct daily scan publishes openings before finishing and continues past a failed day', async () => {
+  const days = [1, 2, 3, 4].map((n) => hstDay(Date.now() + n * 86400000));
+  const fixture = structuredClone(catalog);
+  fixture.ALAM.max_appt_date = days[3];
+  let entered, finish;
+  const waiting = new Promise((resolve) => (entered = resolve));
+  const gate = new Promise((resolve) => (finish = resolve));
+  const checked = [],
+    snapshots = [];
+  const scanner = new Scanner(
+    (state) => snapshots.push(structuredClone(state)),
+    () => ({
+      requests: 0,
+      catalog: async () => fixture,
+      holidays: async () => new Set([days[0]]),
+      dates: async () => {
+        throw Error('Must not use date index');
+      },
+      times: async (code, key, day) => {
+        checked.push(day);
+        if (day === days[1]) {
+          entered();
+          await gate;
+          return [];
+        }
+        if (day === days[2]) throw Error('Temporary read failure');
+        return [timeSlot(day, '12:30:00')];
+      },
+    }),
+  );
+  scanner.start({
+    order: ['ala-moana'],
+    enabled: ['ala-moana'],
+    scope: 'motor',
+    startDate: days[0],
+    endDate: days[3],
+  });
+  await waiting;
+  assert.equal(scanner.state.status, 'running');
+  assert.equal(scanner.state.slots.length, 1);
+  assert.equal(scanner.state.datesChecked, 1);
+  assert.equal(scanner.state.datesTotal, 4);
+  assert.ok(snapshots.some((state) => state.status === 'running' && state.slots.length === 1));
+  finish();
+  await scanner.task;
+  assert.deepEqual(checked, days);
+  assert.equal(scanner.state.status, 'partial');
+  assert.deepEqual(
+    scanner.state.slots.map((slot) => slot.day),
+    [days[0], days[3]],
+  );
+  assert.equal(scanner.state.datesChecked, 4);
+  assert.equal(scanner.state.datesScanned, 3);
 });

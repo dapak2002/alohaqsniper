@@ -30,7 +30,7 @@ Changing the location, service, or dates clears the displayed results until you 
 
 ## Coverage and limits
 
-- Scans cover your exact date range, up to each location’s booking limit. Same-day ranges are supported. Past days are not searched; a past start is moved to today when scanning. Requests run sequentially with 250 ms spacing, 20-second timeouts and one bounded retry for temporary server/rate-limit errors. Large scans across all services and locations can still take several minutes; progress shows the current location, service and date.
+- Scans cover your exact date range, up to each location’s booking limit. Same-day ranges are supported. Past days are not searched; a past start is moved to today when scanning. The calendar checks each date’s time endpoint directly, including weekends and listed holidays, without relying on the available-date index. Results and date-by-date progress appear while scanning. Requests run sequentially with 250 ms spacing, 20-second timeouts and one bounded retry for temporary server/rate-limit errors. Large scans across all services and locations can still take several minutes; progress shows the current location, service and date.
 - Availability is searchable for every appointment-enabled service. Direct booking supports motor vehicle, disability parking/HOLO, and passport services. Use the official AlohaQ site for other services and their document/eligibility steps. Disabled services are listed as not bookable online.
 - Errors, unavailable calendars and interrupted services appear next to the search status. Partial results are explicitly labeled; an empty view is not proof that an incomplete service has no openings.
 - Times and dates are displayed in Hawaii Standard Time. Availability changes frequently; openings may disappear before booking.
@@ -83,7 +83,7 @@ npm run cli -- --list
 npm run cli -- --locations all --watch --before 2026-10-30
 ```
 
-The CLI inspects the initially available month. The frontend's API scanner fetches all available dates within its selected horizon and AlohaQ’s location-specific calendar limit. Both always prioritize appointment time before distance/location preference.
+The CLI inspects the initially available month. The frontend’s API scanner checks the time endpoint for every date within its selected range and AlohaQ’s location-specific calendar limit. Both always prioritize appointment time before distance/location preference.
 
 ## Development
 
@@ -124,7 +124,7 @@ curl 'https://alohaq.honolulu.gov/wrk_get_availability.php?l=ALAM&s=146&d=2026-1
 # ["12:30:00"]
 ```
 
-The regular calendar scan first requests available dates and then requests times only for those returned dates. It therefore skipped October 30. **Snipe appointment** checks the selected date's times directly, so it found **12:30 PM HST**.
+At the time of this investigation, the regular calendar scan first requested available dates and then requested times only for those returned dates. It therefore skipped October 30. The calendar now checks each date’s times directly, matching Snipe appointment, and displays openings as dates finish. **Snipe appointment** checks the selected date's times directly, so it found **12:30 PM HST**.
 
 The catalog confirmed service 146 was enabled at Ala Moana, and October 30 was absent from the returned holiday list. The conflicting responses do **not** establish which endpoint was stale, whether the slot was actually bookable, or whether October 30 should be excluded. Availability can change between requests. A listed time is not a confirmed appointment; only a successful booking response confirms it. No appointment was submitted during this investigation.
 

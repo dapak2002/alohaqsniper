@@ -124,11 +124,16 @@ export class AlohaQApi {
             : Date.parse(retry) - Date.now()
           : 1500;
         if (!Number.isFinite(delay) || delay > 10000)
-          throw new Error('AlohaQ requested a longer pause. Try again later.');
+          throw Object.assign(new Error('AlohaQ requested a longer pause. Try again later.'), {
+            status: 429,
+          });
         await this.pause(Math.max(1000, delay), undefined, { signal: this.signal });
         continue;
       }
-      if (!response.ok) throw new Error(`AlohaQ returned HTTP ${response.status}.`);
+      if (!response.ok)
+        throw Object.assign(new Error(`AlohaQ returned HTTP ${response.status}.`), {
+          status: response.status,
+        });
       try {
         return await response.json();
       } catch {

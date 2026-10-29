@@ -422,7 +422,7 @@ function renderScan() {
   $('scan-status').textContent = !searchSelection
     ? ''
     : running
-      ? 'Checking available times…'
+      ? `Checking ${s.currentDay ? dateLabel(s.currentDay) : 'availability'} · ${s.datesChecked || 0} of ${s.datesTotal || 0} dates checked · ${filtered().length} times found`
       : s.status === 'complete'
         ? `Search complete · ${filtered().length} available times`
         : s.status === 'cancelled'
@@ -452,6 +452,8 @@ async function refresh() {
     state.scan.status,
     state.scan.message,
     state.scan.slots.length,
+    state.scan.datesChecked,
+    state.scan.datesTotal,
   ]);
   if (signature !== lastSignature) {
     lastSignature = signature;
