@@ -17,7 +17,7 @@ const root = new URL('../', import.meta.url);
 const port = Number(process.env.PORT || 4317);
 const address = `http://127.0.0.1:${port}`;
 const ids = locations.map((l) => l.id);
-const defaults = { order: ids, enabled: ids, scope: 'all', days: 90 };
+const defaults = { order: ids, enabled: ids, scope: 'all', days: 30 };
 const publicOrigins = [
   process.env.APP_ORIGIN,
   process.env.RAILWAY_PUBLIC_DOMAIN && `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`,

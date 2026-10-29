@@ -48,7 +48,7 @@ export function scanRange(start, end) {
 }
 export function migrateSettings(value, now = Date.now()) {
   if (value.startDate !== undefined || value.endDate !== undefined) return value;
-  const days = [30, 90, 180].includes(value.days) ? value.days : 90;
+  const days = [30, 90, 180].includes(value.days) ? value.days : 30;
   const { days: oldDays, ...rest } = value;
   return { ...rest, startDate: hstDay(now), endDate: hstDay(now + (days - 1) * 86400000) };
 }
