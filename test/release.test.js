@@ -122,7 +122,7 @@ test('stop during availability request prevents booking and stale timer cannot r
 test('expired windows and read failures stop, and duplicate arms are rejected', async () => {
   const t = setup();
   await t.arm();
-  await assert.rejects(t.arm(), /already armed/);
+  await assert.rejects(t.arm(), /already running or scheduled/);
   t.setNow(releaseWindow('2099-01-05').end);
   await t.r.tick();
   assert.equal(t.r.state.status, 'expired');
@@ -246,4 +246,42 @@ test('release clears contact details after stopping and expiration', async () =>
   t.setNow(t.r.state.end);
   await t.r.tick();
   assert.equal(t.r.person, undefined);
+});
+
+test('start now keeps retrying an empty date and books its earliest opening once', async () => {
+  const t = setup();
+  await t.r.arm({ mode: 'now', targetDay: '2099-01-06', locationId: 'ala-moana' }, details);
+  assert.equal(t.r.state.status, 'searching');
+  assert.equal(t.jobs[0].delay, 0);
+  await t.r.tick();
+  await t.r.tick();
+  assert.equal(t.booked.length, 0);
+  assert.equal(t.jobs.at(-1).delay, 500);
+  const early = Date.parse('2099-01-06T08:00:00-10:00');
+  t.setSlots([
+    { epoch: early + 3600000, time: '9:00 AM' },
+    { epoch: early, time: '8:00 AM' },
+    { epoch: early + 86400000, time: 'Other day' },
+  ]);
+  await t.r.tick();
+  assert.equal(t.booked.length, 1);
+  assert.equal(t.booked[0].slot.epoch, early);
+  assert.equal(t.r.state.status, 'booked');
+  assert.equal(t.r.person, undefined);
+  await t.r.tick();
+  assert.equal(t.booked.length, 1);
+});
+test('start now expires, can restart, and rejects invalid options', async () => {
+  const t = setup();
+  const selection = { mode: 'now', targetDay: '2099-01-06', locationId: 'ala-moana' };
+  await t.r.arm(selection, details);
+  t.setNow(t.r.state.end);
+  await t.r.tick();
+  assert.equal(t.r.state.status, 'expired');
+  assert.equal(t.r.person, undefined);
+  await t.r.arm(selection, details);
+  assert.equal(t.r.state.status, 'searching');
+  t.r.stop();
+  await assert.rejects(t.r.arm({ ...selection, mode: 'invalid' }, details), /start option/);
+  await assert.rejects(t.r.arm({ ...selection, targetDay: '2000-01-01' }, details), /future/);
 });

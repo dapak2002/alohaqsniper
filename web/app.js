@@ -193,36 +193,7 @@ if ($('results'))
     $('confirm-book').disabled = !supported;
     $('book-dialog').showModal();
   };
-if ($('express-book'))
-  $('express-book').onclick = () => {
-    const service = selectedService();
-    if (!service?.directBooking || service.disabled) {
-      toast('Choose a service available for direct booking, or continue on AlohaQ.');
-      return;
-    }
-    const day = $('start-date').value,
-      locationId = $('express-location').value,
-      serviceKey = service.key;
-    try {
-      scanRange(day, day);
-      if (day < hstDay(Date.now())) throw Error('Choose today or a future date.');
-    } catch (e) {
-      toast(e.message);
-      return;
-    }
-    reviewedDetails = bookingDetails('appointment-details');
-    if (!reviewedDetails) return;
-    expressSelection = { day, locationId, serviceKey };
-    bookingRequestId = crypto.randomUUID();
-    const location = state.locations.find((l) => l.id === locationId);
-    $('booking-summary').innerHTML =
-      `<strong>${escape(dateLabel(day))} · Earliest available time (HST)</strong><p>${escape(location.name)}</p><p>${escape(serviceName(service.name))}</p><p>The exact time is selected from live availability when you confirm. If this day is full, nothing is booked.</p>`;
-    $('booking-summary').innerHTML += contactSummary(reviewedDetails);
-    $('book-status').textContent = '';
-    $('confirm-book').textContent = 'Confirm & book earliest';
-    $('confirm-book').disabled = false;
-    $('book-dialog').showModal();
-  };
+if ($('express-book')) $('express-book').onclick = () => reviewExpress('now');
 function allowBookingRetry() {
   bookingRequestId = crypto.randomUUID();
   $('confirm-book').textContent = 'Try again';
@@ -333,12 +304,17 @@ if ($('express-mode'))
     $('express-release-controls').hidden = !scheduled;
   };
 function renderRelease() {
-  const r = state.release || { status: 'idle', message: 'Not armed.' };
+  const r = state.release || { status: 'idle', message: 'Ready to search.' };
   const active = ['preparing', 'waiting', 'searching', 'submitting'].includes(r.status);
   $('release-banner').hidden = r.status === 'idle';
   if ($('release-review'))
     $('release-review').disabled =
       active || !selectedService()?.directBooking || selectedService()?.disabled;
+  if ($('express-book'))
+    $('express-book').disabled =
+      active || !selectedService()?.directBooking || selectedService()?.disabled;
+  if ($('express-book')) $('express-book').textContent = active ? 'In Queue' : 'Start Queue';
+  if ($('release-review')) $('release-review').textContent = active ? 'In Queue' : 'Start Queue';
   $('release-stop').hidden = !active;
   $('release-stop').disabled = r.status === 'submitting';
   const remaining = Math.max(0, Math.ceil((r.start - Date.now()) / 1000));
@@ -347,57 +323,77 @@ function renderRelease() {
       ? ` Starts in ${Math.floor(remaining / 3600)}h ${Math.floor((remaining % 3600) / 60)}m ${remaining % 60}s.`
       : '';
   $('release-status').textContent =
-    `${r.message}${r.status === 'booked' ? ' ' + confirmationNotice : ''}${countdown}${r.location ? ` ${r.location}${r.service ? ' · ' + serviceName(r.service) : ''} · appointment ${r.day} · ${r.attempts} checks` : ''}`;
+    `${['preparing', 'waiting', 'searching'].includes(r.status) ? 'In Queue · ' : ''}${r.message}${r.status === 'booked' ? ' ' + confirmationNotice : ''}${countdown}${r.location ? ` ${r.location}${r.service ? ' · ' + serviceName(r.service) : ''} · appointment ${r.day} · ${r.attempts} checks` : ''}`;
 }
-if ($('release-review'))
-  $('release-review').onclick = () => {
-    const service = selectedService();
-    if (!service?.directBooking || service.disabled) {
-      toast('This service must be completed on AlohaQ.');
-      return;
-    }
-    const releaseDay = hstDay(Date.now()),
-      targetDay = $('start-date').value,
-      releaseTime = $('release-time').value,
-      locationId = $('express-location').value;
-    let window;
-    try {
-      scanRange(targetDay, targetDay);
-      if (targetDay < releaseDay) throw Error('Choose today or a future appointment date.');
-      window = releaseWindow(releaseDay, releaseTime);
-    } catch (e) {
-      toast(e.message);
-      return;
-    }
-    releaseDetails = bookingDetails('appointment-details');
-    if (!releaseDetails) return;
-    releaseSelection = { releaseDay, releaseTime, targetDay, locationId, serviceKey: service.key };
-    const label = (epoch) =>
-      new Date(epoch).toLocaleString('en-US', {
-        timeZone: 'Pacific/Honolulu',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      });
-    $('release-summary').innerHTML =
-      `<strong>Release: ${escape(label(window.start))} – ${escape(label(window.end))} HST</strong><p>First check: 500 ms after the selected start time.</p><p>Appointment: ${escape(targetDay)} · earliest available time</p><p>${escape(state.locations.find((l) => l.id === locationId).name)}</p><p>${escape(serviceName(service.name))}</p>`;
-    $('release-summary').innerHTML += contactSummary(releaseDetails);
-    $('confirm-release').disabled = false;
-    $('release-review-status').textContent = '';
-    $('release-dialog').showModal();
+if ($('release-review')) $('release-review').onclick = () => reviewExpress('scheduled');
+function reviewExpress(mode) {
+  const service = selectedService();
+  if (!service?.directBooking || service.disabled) {
+    toast('This service must be completed on AlohaQ.');
+    return;
+  }
+  const releaseDay = hstDay(Date.now()),
+    targetDay = $('start-date').value,
+    releaseTime = $('release-time').value,
+    locationId = $('express-location').value;
+  let window;
+  try {
+    scanRange(targetDay, targetDay);
+    if (targetDay < releaseDay) throw Error('Choose today or a future appointment date.');
+    window =
+      mode === 'now'
+        ? { start: Date.now(), end: Date.now() + 5 * 60000 }
+        : releaseWindow(releaseDay, releaseTime);
+  } catch (e) {
+    toast(e.message);
+    return;
+  }
+  releaseDetails = bookingDetails('appointment-details');
+  if (!releaseDetails) return;
+  releaseSelection = {
+    mode,
+    releaseDay,
+    releaseTime,
+    targetDay,
+    locationId,
+    serviceKey: service.key,
   };
+  const label = (epoch) =>
+    new Date(epoch).toLocaleString('en-US', {
+      timeZone: 'Pacific/Honolulu',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  $('release-summary').innerHTML =
+    `<strong>${mode === 'now' ? 'Start now · search for up to 5 minutes' : `Start ${escape(label(window.start))} HST · search until ${escape(label(window.end))} HST`}</strong><p>Keep checking this date and book the earliest opening automatically.</p><p>Appointment: ${escape(targetDay)} · earliest available time</p><p>${escape(state.locations.find((l) => l.id === locationId).name)}</p><p>${escape(serviceName(service.name))}</p>`;
+  $('release-summary').innerHTML += contactSummary(releaseDetails);
+  $('confirm-release').textContent = mode === 'now' ? 'Start Queue' : 'Start Queue';
+  $('confirm-release').disabled = false;
+  $('release-review-status').textContent = '';
+  $('release-dialog').showModal();
+}
 if ($('confirm-release'))
   $('confirm-release').onclick = async () => {
     $('confirm-release').disabled = true;
     $('release-review-status').textContent = 'Preparing…';
     try {
-      const r = await api('release-arm', { ...releaseSelection, reviewedDetails: releaseDetails });
+      const r = await api('express-start', {
+        ...releaseSelection,
+        reviewedDetails: releaseDetails,
+      });
       $('release-review-status').textContent = r.message;
+      if (['preparing', 'waiting', 'searching'].includes(r.status)) {
+        $('release-dialog').close();
+        releaseDetails = null;
+        $('release-banner').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else $('confirm-release').disabled = false;
       await refresh();
     } catch (e) {
       $('release-review-status').textContent = e.message;
+      $('confirm-release').disabled = false;
       await refresh().catch(() => {});
     }
   };
@@ -440,7 +436,7 @@ async function refresh() {
     settings = next.settings;
     lastSignature = '';
     window.alert(
-      'Your session expired or the server restarted. Armed jobs were cleared. Check any unconfirmed appointment on AlohaQ before booking again.',
+      'Your session expired or the server restarted. Scheduled searches were cleared. Check any unconfirmed appointment on AlohaQ before booking again.',
     );
   }
   state = next;

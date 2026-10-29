@@ -111,7 +111,11 @@ const server = http.createServer(async (req, res) => {
       rates.check(`requests:${peer}`, 1200);
       if (req.method === 'POST' && !['/api/stop', '/api/release-stop'].includes(url.pathname)) {
         rates.check(`writes:${peer}`, 30);
-        if (['/api/book', '/api/book-express', '/api/release-arm'].includes(url.pathname))
+        if (
+          ['/api/book', '/api/book-express', '/api/release-arm', '/api/express-start'].includes(
+            url.pathname,
+          )
+        )
           rates.check(`booking:${peer}`, 10);
       }
 

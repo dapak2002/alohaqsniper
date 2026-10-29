@@ -7,20 +7,32 @@ export { releaseWindow } from './shared.js';
 export class ReleaseBooking {
   constructor({ bookings, api, now = Date.now, schedule = setTimeout, unschedule = clearTimeout }) {
     Object.assign(this, { bookings, api, now, schedule, unschedule });
-    this.state = { status: 'idle', message: 'Not armed.' };
+    this.state = { status: 'idle', message: 'Ready to search.' };
     this.generation = 0;
   }
   active() {
     return ['preparing', 'waiting', 'searching', 'submitting'].includes(this.state.status);
   }
-  async arm({ releaseDay, releaseTime = '16:14', targetDay, locationId, serviceKey }, details) {
-    if (this.active()) throw Error('A release booking is already armed. Stop it first.');
-    if (releaseDay !== hstDay(this.now()))
+  async arm(
+    { mode = 'scheduled', releaseDay, releaseTime = '16:14', targetDay, locationId, serviceKey },
+    details,
+  ) {
+    if (this.active())
+      throw Error('An express search is already running or scheduled. Stop it first.');
+    if (!['now', 'scheduled'].includes(mode)) throw Error('Choose a valid start option.');
+    if (mode === 'scheduled' && releaseDay !== hstDay(this.now()))
       throw Error('Release must start today in Hawaii. Reopen the review dialog.');
     scanRange(targetDay, targetDay);
-    if (targetDay < releaseDay) throw Error('Choose today or a future appointment date.');
-    const window = { ...releaseWindow(releaseDay, releaseTime), day: targetDay },
-      location = locations.find((l) => l.id === locationId);
+    if (targetDay < hstDay(this.now())) throw Error('Choose today or a future appointment date.');
+    const window =
+      mode === 'now'
+        ? {
+            start: this.now(),
+            end: Math.min(this.now() + 5 * 60000, scanRange(targetDay, targetDay).cutoff),
+            day: targetDay,
+          }
+        : { ...releaseWindow(releaseDay, releaseTime), day: targetDay };
+    const location = locations.find((l) => l.id === locationId);
     if (!location) throw Error('Unknown location.');
     if (this.now() >= window.end)
       throw Error('This release window has ended. Choose a later time today.');
@@ -29,6 +41,7 @@ export class ReleaseBooking {
     this.state = {
       status: 'preparing',
       message: 'Preparing service lookup…',
+      mode,
       releaseDay,
       releaseTime,
       locationId,
@@ -50,8 +63,11 @@ export class ReleaseBooking {
         service: service.name,
       };
       this.person = person;
-      this.state.status = 'waiting';
-      this.state.message = `Armed for ${releaseTime} HST.`;
+      this.state.status = mode === 'now' ? 'searching' : 'waiting';
+      this.state.message =
+        mode === 'now'
+          ? 'Starting your search. We’ll book the earliest opening on this date.'
+          : `Search scheduled for ${releaseTime} HST.`;
       this.queue(generation, Math.max(0, window.start - this.now()));
     } catch (e) {
       if (generation === this.generation) {
@@ -74,7 +90,8 @@ export class ReleaseBooking {
     if (this.now() >= this.state.end) {
       this.person = undefined;
       this.state.status = 'expired';
-      this.state.message = 'Release window ended without a booking.';
+      this.state.message =
+        'Search ended after five minutes without a booking. You can start again.';
       return;
     }
     this.state.status = 'searching';
@@ -90,7 +107,8 @@ export class ReleaseBooking {
       if (this.now() >= this.state.end) {
         this.person = undefined;
         this.state.status = 'expired';
-        this.state.message = 'Release window ended without a booking.';
+        this.state.message =
+          'Search ended after five minutes without a booking. You can start again.';
         return;
       }
       const earliest = times
@@ -136,7 +154,7 @@ export class ReleaseBooking {
     this.generation++;
     if (this.active()) {
       this.state.status = 'stopped';
-      this.state.message = 'Release booking stopped.';
+      this.state.message = 'Search stopped. You can start again.';
     }
     return this.state;
   }

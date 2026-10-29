@@ -11,6 +11,7 @@ export const apiRoutes = new Map([
   ['/api/book', 'POST'],
   ['/api/book-express', 'POST'],
   ['/api/release-arm', 'POST'],
+  ['/api/express-start', 'POST'],
   ['/api/release-stop', 'POST'],
 ]);
 
@@ -81,18 +82,22 @@ export async function handleApi(req, res, path, session, services, work) {
           );
     return json(res, 200, result);
   }
-  if (req.method === 'POST' && path === '/api/release-arm') {
-    const { releaseDay, releaseTime, targetDay, locationId, serviceKey, reviewedDetails } =
+  if (req.method === 'POST' && ['/api/release-arm', '/api/express-start'].includes(path)) {
+    const { mode, releaseDay, releaseTime, targetDay, locationId, serviceKey, reviewedDetails } =
       await readBody(req);
     const reviewed = validateDetails(reviewedDetails || {});
-    if (release.active()) throw new Error('A release booking is already armed. Stop it first.');
+    if (release.active())
+      throw new Error('An express search is already running or scheduled. Stop it first.');
     session.cleanup();
     session.releaseSlot = work.acquire('release');
     try {
       return json(
         res,
         200,
-        await release.arm({ releaseDay, releaseTime, targetDay, locationId, serviceKey }, reviewed),
+        await release.arm(
+          { mode, releaseDay, releaseTime, targetDay, locationId, serviceKey },
+          reviewed,
+        ),
       );
     } finally {
       session.cleanup();

@@ -36,7 +36,8 @@
     <main class="express-page">
       <h2>Express booking</h2>
       <p class="intro">
-        Book the earliest time on your chosen date, now or at a release time today.
+        Keep checking your chosen date and automatically book the earliest opening. Start now or
+        schedule a search today.
       </p>
       <section class="card" aria-label="Express booking controls">
         <div class="location-field">
@@ -89,11 +90,15 @@
         <label for="express-mode"
           >When<select id="express-mode">
             <option value="now">Book now</option>
-            <option value="release">At a release time today</option>
+            <option value="release">Schedule for today</option>
           </select></label
         >
         <div id="express-now-controls">
-          <button id="express-book" class="primary" disabled>Book earliest on this day</button>
+          <p class="hint">
+            Checks every 500 ms for up to 5 minutes, subject to server limits. If no times are
+            available, it keeps trying. Stop at any time before booking.
+          </p>
+          <button id="express-book" class="primary" disabled>Start Queue</button>
         </div>
         <div id="express-release-controls" hidden>
           <label for="release-time"
@@ -134,9 +139,9 @@
           </div>
           <p class="hint">
             Starts 500 ms after this time, then retries every 500 ms for up to 5 minutes. Keep this
-            browser session available to view the result. Server restarts cancel armed runs.
+            browser session available to view the result. Server restarts cancel scheduled searches.
           </p>
-          <button id="release-review" class="primary" disabled>Review & arm release booking</button>
+          <button id="release-review" class="primary" disabled>Start Queue</button>
         </div>
       </section>
       <div id="release-banner" hidden>
@@ -146,7 +151,7 @@
           target="_blank"
           rel="noreferrer"
           >View ticket details on AlohaQ ↗</a
-        ><button id="release-stop" class="secondary" hidden>Stop release booking</button>
+        ><button id="release-stop" class="secondary" hidden>Leave Queue</button>
       </div>
       <p id="connection-status" role="status"></p>
     </main>
@@ -179,14 +184,13 @@
       <form method="dialog">
         <button class="close-dialog" aria-label="Close release review">×</button>
       </form>
-      <h2>Arm automatic booking?</h2>
+      <h2>Review your queue</h2>
       <div id="release-summary"></div>
       <p class="hint">
         Confirming authorizes one real booking with these details when an opening appears during
-        this release window. It stops after a booking response or error. You can stop it before
-        submission.
+        this search. It stops after a booking response or error. You can stop it before submission.
       </p>
-      <button id="confirm-release" class="primary">Confirm & arm automatic booking</button>
+      <button id="confirm-release" class="primary">Start Queue</button>
       <p id="release-review-status" role="status"></p>
       <a
         href="https://alohaq.honolulu.gov/?0&amp;cat=1&amp;name=Driver%20Licensing%20and%20Satellite%20Services"
