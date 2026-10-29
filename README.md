@@ -112,6 +112,24 @@ Tests cover chronological ordering, location tie-breaking, distance calculations
 
 These public requests require no cookies, credentials or contact details in the tested flow. The client validates responses, filters holidays and dates outside the selected range, and preserves AlohaQ’s weekend/holiday extension of location-specific calendar limits. Unexpected responses are reported as incomplete scans. Booking uses `POST /wrk_book_appointment.php`. Appointment cancellation and management are available on the official AlohaQ site. These requests are made only for explicit user actions, with no automatic mutation retries. SMS calls are not replicated.
 
+### Observed discrepancy between available dates and times
+
+On October 29, 2026 (HST), read-only curl checks for **October 30, 2026**, **Ala Moana Satellite City Hall** (`ALAM`), **Motor Vehicles & Other Services** (`146`) returned conflicting results:
+
+```sh
+curl 'https://alohaq.honolulu.gov/wrk_availability.php?l=ALAM&s=146&d=2026-10-30&m=2026-10-30&t=all'
+# {"msg":"none","data":[]}
+
+curl 'https://alohaq.honolulu.gov/wrk_get_availability.php?l=ALAM&s=146&d=2026-10-30'
+# ["12:30:00"]
+```
+
+The regular calendar scan first requests available dates and then requests times only for those returned dates. It therefore skipped October 30. **Snipe appointment** checks the selected date's times directly, so it found **12:30 PM HST**.
+
+The catalog confirmed service 146 was enabled at Ala Moana, and October 30 was absent from the returned holiday list. The conflicting responses do **not** establish which endpoint was stale, whether the slot was actually bookable, or whether October 30 should be excluded. Availability can change between requests. A listed time is not a confirmed appointment; only a successful booking response confirms it. No appointment was submitted during this investigation.
+
+These are historical observations, not current availability. The commands above can be used to compare the endpoints again.
+
 ### Snipe appointment
 
 Use **Snipe appointment** to choose an office, service, and appointment date. Choose **Book now**, enter your contact details, and click **Start Queue** to review and confirm. The page shows **In Queue** while the server checks the selected date every 500 ms (subject to shared limits) for up to five minutes. Empty availability keeps retrying; the earliest opening on that exact date is rechecked and booked automatically. **Leave Queue** stops before submission. When a run ends, Start Queue becomes available again. This is the tool's search queue, not a reservation or an official AlohaQ waitlist.
