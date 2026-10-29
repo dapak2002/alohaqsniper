@@ -313,8 +313,12 @@ function renderRelease() {
   if ($('express-book'))
     $('express-book').disabled =
       active || !selectedService()?.directBooking || selectedService()?.disabled;
-  if ($('express-book')) $('express-book').textContent = active ? 'In Queue' : 'Start Queue';
-  if ($('release-review')) $('release-review').textContent = active ? 'In Queue' : 'Start Queue';
+  for (const id of ['express-book', 'release-review', 'confirm-release']) {
+    const button = $(id);
+    if (!button) continue;
+    button.textContent = active ? 'In Queue' : 'Start Queue';
+    if (active) button.disabled = true;
+  }
   $('release-stop').hidden = !active;
   $('release-stop').disabled = r.status === 'submitting';
   const remaining = Math.max(0, Math.ceil((r.start - Date.now()) / 1000));
@@ -323,7 +327,7 @@ function renderRelease() {
       ? ` Starts in ${Math.floor(remaining / 3600)}h ${Math.floor((remaining % 3600) / 60)}m ${remaining % 60}s.`
       : '';
   $('release-status').textContent =
-    `${['preparing', 'waiting', 'searching'].includes(r.status) ? 'In Queue · ' : ''}${r.message}${r.status === 'booked' ? ' ' + confirmationNotice : ''}${countdown}${r.location ? ` ${r.location}${r.service ? ' · ' + serviceName(r.service) : ''} · appointment ${r.day} · ${r.attempts} checks` : ''}`;
+    `${active ? 'In Queue · ' : ''}${r.message}${r.status === 'booked' ? ' ' + confirmationNotice : ''}${countdown}${r.location ? ` ${r.location}${r.service ? ' · ' + serviceName(r.service) : ''} · appointment ${r.day} · ${r.attempts} checks` : ''}`;
 }
 if ($('release-review')) $('release-review').onclick = () => reviewExpress('scheduled');
 function reviewExpress(mode) {
@@ -370,7 +374,7 @@ function reviewExpress(mode) {
   $('release-summary').innerHTML =
     `<strong>${mode === 'now' ? 'Start now · search for up to 5 minutes' : `Start ${escape(label(window.start))} HST · search until ${escape(label(window.end))} HST`}</strong><p>Keep checking this date and book the earliest opening automatically.</p><p>Appointment: ${escape(targetDay)} · earliest available time</p><p>${escape(state.locations.find((l) => l.id === locationId).name)}</p><p>${escape(serviceName(service.name))}</p>`;
   $('release-summary').innerHTML += contactSummary(releaseDetails);
-  $('confirm-release').textContent = mode === 'now' ? 'Start Queue' : 'Start Queue';
+  $('confirm-release').textContent = 'Start Queue';
   $('confirm-release').disabled = false;
   $('release-review-status').textContent = '';
   $('release-dialog').showModal();
@@ -384,8 +388,10 @@ if ($('confirm-release'))
         ...releaseSelection,
         reviewedDetails: releaseDetails,
       });
+      state.release = r;
+      renderRelease();
       $('release-review-status').textContent = r.message;
-      if (['preparing', 'waiting', 'searching'].includes(r.status)) {
+      if (['preparing', 'waiting', 'searching', 'submitting'].includes(r.status)) {
         $('release-dialog').close();
         releaseDetails = null;
         $('release-banner').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
